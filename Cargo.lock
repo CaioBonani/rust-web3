@@ -2680,7 +2680,9 @@ dependencies = [
  "serde_json",
  "solana-client",
  "solana-sdk",
+ "spl-token",
  "spl-token-client",
+ "tokio",
 ]
 
 [[package]]

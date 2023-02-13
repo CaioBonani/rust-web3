@@ -1,42 +1,51 @@
 // #![allow(unused)]
 
+use std::net::SocketAddr;
+use std::str::FromStr;
+use std::convert::Infallible;
 
 use solana_sdk::message::Message;
 use solana_sdk::{
     signer::keypair::Keypair,
     transaction::Transaction,
     pubkey::Pubkey,
+    instruction::Instruction,
 };
-
 use solana_client::rpc_client::RpcClient;
-use std::net::SocketAddr;
-use std::str::FromStr;
-// use std::str::FromStr;
-use bs58::decode;
+use spl_token::ID;
+
 use serde_json::Value;
+
 use hyper::rt;
-use hyper::{Body, Request, Response, service::service_fn, Server};
+use hyper::{Body, Request, Response, service::service_fn, Server, service::make_service_fn};
 
 fn make_airdrop(public_key: &str, amount: u64, client: &RpcClient, signer: &Keypair) {
     let to = Pubkey::from_str(public_key).unwrap();
 
-    let instruction = 
+    let from = Pubkey::from_str(&signer.to_base58_string()).unwrap();
 
-    let message = Message::new(&[signer.pubkey()], &[to], client.get_latest_blockhash().unwrap());
 
-    let transaction = Transaction::new(
-        &[signer], 
-        vec![(to, amount)], 
-        client.get_latest_blockhash());
+    let instruction = spl_token::instruction::transfer(
+        &ID,
+        &Pubkey::from_str(&signer.to_base58_string()).unwrap(),
+        &to,
+        &Pubkey::from_str(&signer.to_base58_string()).unwrap(),
+        &[],
+        amount,
+    ).unwrap();
 
-    let result = client.send_transaction(transaction);
+    let message = Message::new(&[instruction], Some(&from));
+
+    let transaction = Transaction::new(&[signer], message, client.get_latest_blockhash().unwrap());
+
+    let result = client.send_transaction(&transaction);
     match result {
         Ok(transaction_response) => println!("Transaction successful: {:?}", transaction_response),
         Err(error) => println!("Transaction error: {:?}", error),
     }
 }
 
-async fn api_handler(req: Request<Body>) -> Response<Body> {
+async fn api_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     let client = RpcClient::new("https://testnet.solana.com");
 
     let private_key: String;
@@ -48,20 +57,9 @@ async fn api_handler(req: Request<Body>) -> Response<Body> {
     let body_string = String::from_utf8(body_bytes.to_vec()).unwrap();
     let body_json: Value = serde_json::from_str(&body_string).unwrap();
 
-    match body_json["private_key"].as_str() {
-        Some(key) => private_key = key.to_string(),
-        None => return Response::new(Body::from("No private key")),
-    }
-
-    match body_json["public_key"].as_str() {
-        Some(key) => public_key = key.to_string(),
-        None => return Response::new(Body::from("No public key")),
-    }
-
-    match body_json["amount"].as_u64() {
-        Some(key) => amount = key,
-        None => return Response::new(Body::from("No amount")),
-    }
+    private_key = body_json["private_key"].as_str().unwrap().to_string();
+    public_key = body_json["public_key"].as_str().unwrap().to_string();
+    amount = body_json["amount"].as_u64().unwrap();
 
     let private_key_str = private_key.as_str();
     let public_key_str = public_key.as_str();
@@ -70,19 +68,30 @@ async fn api_handler(req: Request<Body>) -> Response<Body> {
 
     make_airdrop(&public_key_str, amount, &client, &signer);
 
-    Response::new(Body::from("Airdrop successful"))
+    Ok(Response::new(Body::from("Airdrop successful")))
 }
 
-fn main() {
+
+async fn handle(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    Ok(Response::new(Body::from("Hello World")))
+}
+
+#[tokio::main]
+async fn main() {
+
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
 
-    let new_svc = || {
-        service_fn(api_handler)
-    };
+    // let new_svc = || {
+    //     service_fn(api_handler)
+    // };
 
-    let server = Server::bind(&addr)
-        .serve(new_svc)
-        .map_err(|e| eprintln!("server error: {}", e));
+    let new_svc = make_service_fn(|_conn| async {
+        Ok::<_, Infallible>(service_fn(api_handler))
+    });
 
-    rt::run(server);
+    let server = Server::bind(&addr).serve(new_svc);
+
+    if let Err(e) = server.await {
+        eprintln!("server error: {}", e);
+    }
 }
