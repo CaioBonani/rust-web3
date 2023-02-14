@@ -1,29 +1,25 @@
-// #![allow(unused)]
-
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::convert::Infallible;
 
+use spl_token::ID;
+use solana_client::rpc_client::RpcClient;
 use solana_sdk::message::Message;
 use solana_sdk::{
     signer::keypair::Keypair,
     transaction::Transaction,
     pubkey::Pubkey,
-    instruction::Instruction,
 };
-use solana_client::rpc_client::RpcClient;
-use spl_token::ID;
 
 use serde_json::Value;
+use hyper::{Body, Request, Response, Server};
+use hyper::service::{service_fn, make_service_fn};
 
-use hyper::rt;
-use hyper::{Body, Request, Response, service::service_fn, Server, service::make_service_fn};
+fn transfer_token(public_key: &str, amount: u64, client: &RpcClient, signer: &Keypair) {
 
-fn make_airdrop(public_key: &str, amount: u64, client: &RpcClient, signer: &Keypair) {
     let to = Pubkey::from_str(public_key).unwrap();
 
     let from = Pubkey::from_str(&signer.to_base58_string()).unwrap();
-
 
     let instruction = spl_token::instruction::transfer(
         &ID,
@@ -39,6 +35,7 @@ fn make_airdrop(public_key: &str, amount: u64, client: &RpcClient, signer: &Keyp
     let transaction = Transaction::new(&[signer], message, client.get_latest_blockhash().unwrap());
 
     let result = client.send_transaction(&transaction);
+
     match result {
         Ok(transaction_response) => println!("Transaction successful: {:?}", transaction_response),
         Err(error) => println!("Transaction error: {:?}", error),
@@ -46,12 +43,13 @@ fn make_airdrop(public_key: &str, amount: u64, client: &RpcClient, signer: &Keyp
 }
 
 async fn api_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let client = RpcClient::new("https://testnet.solana.com");
 
+    let client = RpcClient::new("https://devnet.solana.com");
+    
     let private_key: String;
     let public_key: String;
     let amount: u64;
-
+    
     let body = req.into_body();
     let body_bytes = hyper::body::to_bytes(body).await.unwrap();
     let body_string = String::from_utf8(body_bytes.to_vec()).unwrap();
@@ -66,24 +64,15 @@ async fn api_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
 
     let signer = Keypair::from_base58_string(&private_key_str);
 
-    make_airdrop(&public_key_str, amount, &client, &signer);
+    transfer_token(&public_key_str, amount, &client, &signer);
 
     Ok(Response::new(Body::from("Airdrop successful")))
-}
-
-
-async fn handle(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    Ok(Response::new(Body::from("Hello World")))
 }
 
 #[tokio::main]
 async fn main() {
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
-
-    // let new_svc = || {
-    //     service_fn(api_handler)
-    // };
 
     let new_svc = make_service_fn(|_conn| async {
         Ok::<_, Infallible>(service_fn(api_handler))
