@@ -14,6 +14,8 @@ use solana_sdk::{
 use serde_json::Value;
 use hyper::{Body, Request, Response, Server};
 use hyper::service::{service_fn, make_service_fn};
+use hyper::header::{HeaderValue, ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_ALLOW_METHODS, ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_MAX_AGE};
+
 
 fn transfer_token(public_key: &str, amount: u64, client: &RpcClient, signer: &Keypair) {
 
@@ -44,29 +46,54 @@ fn transfer_token(public_key: &str, amount: u64, client: &RpcClient, signer: &Ke
 
 async fn api_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
 
-    let client = RpcClient::new("https://devnet.solana.com");
+    let mut response = Response::new(Body::from("Airdrop successful"));
+
+    // Adiciona cabeçalho "Access-Control-Allow-Origin" com o valor "*"
+    response.headers_mut().insert(
+        ACCESS_CONTROL_ALLOW_ORIGIN,
+        HeaderValue::from_str("http://localhost:3000/").unwrap(),
+    );
+
+    // Adiciona cabeçalho "Access-Control-Allow-Methods" com o valor "POST"
+    response.headers_mut().insert(
+        ACCESS_CONTROL_ALLOW_METHODS,
+        HeaderValue::from_str("POST, GET").unwrap(),
+    );
+
+    response.headers_mut().insert(
+        ACCESS_CONTROL_MAX_AGE,
+        HeaderValue::from_str("86400").unwrap(),
+    );
+
+    response.headers_mut().insert(
+        ACCESS_CONTROL_ALLOW_HEADERS,
+        HeaderValue::from_str("*").unwrap(),
+    );
+
+
+    // let client = RpcClient::new("https://devnet.solana.com");
     
-    let private_key: String;
-    let public_key: String;
-    let amount: u64;
+    // let private_key: String;
+    // let public_key: String;
+    // let amount: u64;
     
-    let body = req.into_body();
-    let body_bytes = hyper::body::to_bytes(body).await.unwrap();
-    let body_string = String::from_utf8(body_bytes.to_vec()).unwrap();
-    let body_json: Value = serde_json::from_str(&body_string).unwrap();
+    // let body = req.into_body();
+    // let body_bytes = hyper::body::to_bytes(body).await.unwrap();
+    // let body_string = String::from_utf8(body_bytes.to_vec()).unwrap();
+    // let body_json: Value = serde_json::from_str(&body_string).unwrap();
 
-    private_key = body_json["private_key"].as_str().unwrap().to_string();
-    public_key = body_json["public_key"].as_str().unwrap().to_string();
-    amount = body_json["amount"].as_u64().unwrap();
+    // private_key = body_json["private_key"].as_str().unwrap().to_string();
+    // public_key = body_json["public_key"].as_str().unwrap().to_string();
+    // amount = body_json["amount"].as_u64().unwrap();
 
-    let private_key_str = private_key.as_str();
-    let public_key_str = public_key.as_str();
+    // let private_key_str = private_key.as_str();
+    // let public_key_str = public_key.as_str();
 
-    let signer = Keypair::from_base58_string(&private_key_str);
+    // let signer = Keypair::from_base58_string(&private_key_str);
 
-    transfer_token(&public_key_str, amount, &client, &signer);
+    // transfer_token(&public_key_str, amount, &client, &signer);
 
-    Ok(Response::new(Body::from("Airdrop successful")))
+    Ok(response)
 }
 
 #[tokio::main]
