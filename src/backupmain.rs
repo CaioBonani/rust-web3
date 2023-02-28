@@ -7,8 +7,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::vec::Vec;
 use std::result::Result;
-use std::task::ready;
-
 
 use core::task::{Context, Poll};
 
@@ -282,13 +280,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             sync::Arc::new(cfg)
     };
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
-    let service = make_service_fn(|_| async { Ok::<_, io::Error>(service_fn(api_handler)) });
+    let service = make_service_fn(|_conn| async { Ok::<_, io::Infallible>(service_fn(api_handler)) });
     let incoming = AddrIncoming::bind(&addr)?;
     // let service = make_service_fn(|_conn| async { Ok::<_, io::Error>(service_fn(api_handler(req))) });
     
     
     
-    let server = Server::builder(TlsAcceptor::new(tls_cfg, incoming)).serve(service);
+    let server = Server::builder(TlsListener::from(tls_cfg)).serve(incoming, service);
 
     // Cria um socket TLS seguro que irá escutar a porta 8080
     // let tls = HttpsConnector::new().https_only(true);
