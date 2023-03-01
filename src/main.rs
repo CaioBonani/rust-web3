@@ -8,6 +8,7 @@ use std::sync::Arc;
 use std::vec::Vec;
 use std::result::Result;
 use std::task::ready;
+use std::io::prelude::*;
 
 
 use core::task::{Context, Poll};
@@ -174,7 +175,8 @@ fn transfer_token(public_key: &str, amount: u64, client: &RpcClient, signer: &Ke
 
 async fn api_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
 
-    let mut response = Response::new(Body::from("Airdrop successful"));
+    // let mut response = Response::new(Body::from("Airdrop successful"));
+    let mut response = Response::new(Body::from(""));
 
     // Adiciona cabeçalho "Access-Control-Allow-Origin" com o valor "*"
     response.headers_mut().insert(
@@ -252,9 +254,10 @@ fn load_private_key(filename: &str) -> io::Result<tokio_rustls::rustls::PrivateK
     let mut reader = io::BufReader::new(keyfile);
 
     // Load and return a single private key.
-    let keys = rustls_pemfile::rsa_private_keys(&mut reader)
+    let keys = rustls_pemfile::pkcs8_private_keys(&mut reader)
         .map_err(|_| error("failed to load private key".into()))?;
     if keys.len() != 1 {
+        println!("{}", keys.len());
         return Err(error("expected a single private key".into()));
     }
 
@@ -270,6 +273,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let cert_file = "/home/bonani/iniciacao/rust-web3/cert.pem";
         let certs = load_certs(cert_file)?;
         let key_file = "/home/bonani/iniciacao/rust-web3/key.pem";
+        
         let key = load_private_key(key_file)?;
 
         let mut cfg = rustls::ServerConfig::builder()
