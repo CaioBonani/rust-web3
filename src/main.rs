@@ -25,10 +25,10 @@ use solana_sdk::{
 
 use serde_json::Value;
 
-use hyper::{Body, Request, Response, Server, Method, StatusCode};
+use hyper::{Body, Request, Response, Server, StatusCode};
 use hyper::service::{service_fn, make_service_fn};
-use hyper::header::{HeaderValue, ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_ALLOW_METHODS, 
-                    ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_MAX_AGE};
+use hyper::header::{HeaderMap, HeaderValue, ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_ALLOW_METHODS, 
+                    ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_MAX_AGE, ACCESS_CONTROL_ALLOW_CREDENTIALS, ACCESS_CONTROL_EXPOSE_HEADERS};
 use hyper::server::accept::Accept;
 use hyper::server::conn::{AddrIncoming, AddrStream};
 use hyper_tls::HttpsConnector;
@@ -176,29 +176,61 @@ fn transfer_token(public_key: &str, amount: u64, client: &RpcClient, signer: &Ke
 async fn api_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
 
     // let mut response = Response::new(Body::from("Airdrop successful"));
-    let mut response = Response::new(Body::from(""));
 
-    // Adiciona cabeçalho "Access-Control-Allow-Origin" com o valor "*"
-    response.headers_mut().insert(
+    let mut headers = HeaderMap::new();
+
+    headers.insert(
         ACCESS_CONTROL_ALLOW_ORIGIN,
-        HeaderValue::from_str("http://localhost:3000/").unwrap(),
+        HeaderValue::from_str("https://localhost:3000/").unwrap(),
     );
-
-    // Adiciona cabeçalho "Access-Control-Allow-Methods" com o valor "POST"
-    response.headers_mut().insert(
+    headers.insert(
         ACCESS_CONTROL_ALLOW_METHODS,
-        HeaderValue::from_str("POST, GET").unwrap(),
+        HeaderValue::from_str("POST, GET, OPTIONS").unwrap(),
     );
-
-    response.headers_mut().insert(
+    headers.insert(
         ACCESS_CONTROL_MAX_AGE,
         HeaderValue::from_str("86400").unwrap(),
     );
-
-    response.headers_mut().insert(
+    headers.insert(
         ACCESS_CONTROL_ALLOW_HEADERS,
-        HeaderValue::from_str("*").unwrap(),
+        HeaderValue::from_str("Content-Type, Authorization").unwrap(),
     );
+
+    // let mut response = Response::new(Body::from("fgsfsgwgw"));
+
+    // // Adiciona cabeçalho "Access-Control-Allow-Origin" com o valor "*"
+    // response.headers_mut().insert(
+    //     ACCESS_CONTROL_ALLOW_ORIGIN,
+    //     HeaderValue::from_str("https://localhost:3000/").unwrap(),
+    // );
+
+    // // Adiciona cabeçalho "Access-Control-Allow-Methods" com o valor "POST"
+    // response.headers_mut().insert(
+    //     ACCESS_CONTROL_ALLOW_METHODS,
+    //     HeaderValue::from_str("POST, GET").unwrap(),
+    // );
+
+    // response.headers_mut().insert(
+    //     ACCESS_CONTROL_MAX_AGE,
+    //     HeaderValue::from_str("86400").unwrap(),
+    // );
+
+    // response.headers_mut().insert(
+    //     ACCESS_CONTROL_ALLOW_HEADERS,
+    //     HeaderValue::from_str("*").unwrap(),
+    // );
+
+
+    let body = "Hello, World!";
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(ACCESS_CONTROL_ALLOW_METHODS, "*")
+        .header(ACCESS_CONTROL_EXPOSE_HEADERS, "*")
+        .header(ACCESS_CONTROL_ALLOW_HEADERS, "*")
+        .header(ACCESS_CONTROL_MAX_AGE, "86400")
+        .body(Body::from(body))
+        .unwrap();
 
 
     // let client = RpcClient::new("https://devnet.solana.com");
@@ -270,10 +302,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let tls_cfg = {
 
-        let cert_file = "/home/bonani/iniciacao/rust-web3/cert.pem";
+        let cert_file = "/home/bonani/iniciacao/rust-web3/localhost.pem";
         let certs = load_certs(cert_file)?;
-        let key_file = "/home/bonani/iniciacao/rust-web3/key.pem";
-        
+
+        let key_file = "/home/bonani/iniciacao/rust-web3/localhost-key.pem";
         let key = load_private_key(key_file)?;
 
         let mut cfg = rustls::ServerConfig::builder()
