@@ -299,7 +299,6 @@ fn load_private_key(filename: &str) -> io::Result<tokio_rustls::rustls::PrivateK
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
-
     let tls_cfg = {
 
         let cert_file = "/home/bonani/iniciacao/rust-web3/localhost.pem";
@@ -317,28 +316,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             cfg.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
             sync::Arc::new(cfg)
     };
+
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
     let service = make_service_fn(|_| async { Ok::<_, io::Error>(service_fn(api_handler)) });
     let incoming = AddrIncoming::bind(&addr)?;
-    // let service = make_service_fn(|_conn| async { Ok::<_, io::Error>(service_fn(api_handler(req))) });
-    
-    
-    
     let server = Server::builder(TlsAcceptor::new(tls_cfg, incoming)).serve(service);
 
-    // Cria um socket TLS seguro que irá escutar a porta 8080
-    // let tls = HttpsConnector::new().https_only(true);
+    println!("Server running in: https://127.0.0.1:8080");
 
-    // let tcp = TcpListener::bind("127.0.0.1:8080").await?;
-    
-    // let incoming_tls = TlsAcceptor::from(tls_config).accept(tcp).await?;
-    
-    // let server = Server::builder(TcpListener::new(incoming_tls))
-    //     .serve(make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(api_handler)) }));
-
-    println!("Servidor rodando em https://127.0.0.1:8080");
-
-    // Inicia o servidor
+    // Starts the server
     server.await?;
 
     Ok(())
