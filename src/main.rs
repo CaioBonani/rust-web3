@@ -13,6 +13,7 @@ use std::io::prelude::*;
 
 use core::task::{Context, Poll};
 
+use solana_sdk::signer::Signer;
 // use hyper_tls::native_tls::TlsAcceptor;
 use spl_token::ID;
 use solana_client::rpc_client::RpcClient;
@@ -28,7 +29,7 @@ use serde_json::Value;
 use hyper::{Body, Request, Response, Server, StatusCode};
 use hyper::service::{service_fn, make_service_fn};
 use hyper::header::{HeaderMap, HeaderValue, ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_ALLOW_METHODS, 
-                    ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_MAX_AGE, ACCESS_CONTROL_ALLOW_CREDENTIALS, ACCESS_CONTROL_EXPOSE_HEADERS};
+                    ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_MAX_AGE, ACCESS_CONTROL_EXPOSE_HEADERS};
 use hyper::server::accept::Accept;
 use hyper::server::conn::{AddrIncoming, AddrStream};
 use hyper_tls::HttpsConnector;
@@ -37,7 +38,6 @@ use hyper_tls::HttpsConnector;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio_rustls::rustls;
 use tokio_rustls::rustls::ServerConfig;
-
 
 use std::error::Error;
 
@@ -143,28 +143,23 @@ impl Accept for TlsAcceptor {
     }
 }
 
-
 //funcoes
 
-fn transfer_token(public_key: &str, amount: u64, client: &RpcClient, signer: &Keypair) {
+fn transfer_token(sender_tk_adr: &str, receiver_tk_adr: &str, amount: u64, client: &RpcClient, signer: &Keypair) {
 
-    let to = Pubkey::from_str(public_key).unwrap();
-
-    let from = Pubkey::from_str(&signer.to_base58_string()).unwrap();
+    let from = signer.pubkey();
 
     let instruction = spl_token::instruction::transfer(
         &ID,
+        &Pubkey::from_str(&sender_tk_adr).unwrap(),
+        &Pubkey::from_str(&receiver_tk_adr).unwrap(),
         &Pubkey::from_str(&signer.to_base58_string()).unwrap(),
-        &to,
-        &Pubkey::from_str(&signer.to_base58_string()).unwrap(),
-        &[],
+        &[&from],
         amount,
     ).unwrap();
 
     let message = Message::new(&[instruction], Some(&from));
-
     let transaction = Transaction::new(&[signer], message, client.get_latest_blockhash().unwrap());
-
     let result = client.send_transaction(&transaction);
 
     match result {
@@ -174,8 +169,6 @@ fn transfer_token(public_key: &str, amount: u64, client: &RpcClient, signer: &Ke
 }
 
 async fn api_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-
-    // let mut response = Response::new(Body::from("Airdrop successful"));
 
     let mut headers = HeaderMap::new();
 
@@ -196,31 +189,6 @@ async fn api_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         HeaderValue::from_str("Content-Type, Authorization").unwrap(),
     );
 
-    // let mut response = Response::new(Body::from("fgsfsgwgw"));
-
-    // // Adiciona cabeçalho "Access-Control-Allow-Origin" com o valor "*"
-    // response.headers_mut().insert(
-    //     ACCESS_CONTROL_ALLOW_ORIGIN,
-    //     HeaderValue::from_str("https://localhost:3000/").unwrap(),
-    // );
-
-    // // Adiciona cabeçalho "Access-Control-Allow-Methods" com o valor "POST"
-    // response.headers_mut().insert(
-    //     ACCESS_CONTROL_ALLOW_METHODS,
-    //     HeaderValue::from_str("POST, GET").unwrap(),
-    // );
-
-    // response.headers_mut().insert(
-    //     ACCESS_CONTROL_MAX_AGE,
-    //     HeaderValue::from_str("86400").unwrap(),
-    // );
-
-    // response.headers_mut().insert(
-    //     ACCESS_CONTROL_ALLOW_HEADERS,
-    //     HeaderValue::from_str("*").unwrap(),
-    // );
-
-
     let body = "Hello, World!";
     let response = Response::builder()
         .status(StatusCode::OK)
@@ -232,28 +200,29 @@ async fn api_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         .body(Body::from(body))
         .unwrap();
 
-
-    // let client = RpcClient::new("https://devnet.solana.com");
+    let client = RpcClient::new("https://devnet.solana.com");
     
-    // let private_key: String;
-    // let public_key: String;
-    // let amount: u64;
+    let private_key: String;
+    let sender_tk_adr: String;
+    let receiver_tk_adr: String;
+    let amount: u64;
     
-    // let body = req.into_body();
-    // let body_bytes = hyper::body::to_bytes(body).await.unwrap();
-    // let body_string = String::from_utf8(body_bytes.to_vec()).unwrap();
-    // let body_json: Value = serde_json::from_str(&body_string).unwrap();
+    let body = req.into_body();
+    let body_bytes = hyper::body::to_bytes(body).await.unwrap();
+    let body_string = String::from_utf8(body_bytes.to_vec()).unwrap();
+    let body_json: Value = serde_json::from_str(&body_string).unwrap();
 
-    // private_key = body_json["private_key"].as_str().unwrap().to_string();
-    // public_key = body_json["public_key"].as_str().unwrap().to_string();
-    // amount = body_json["amount"].as_u64().unwrap();
+    private_key = body_json["private_key"].as_str().unwrap().to_string();
+    sender_tk_adr = body_json["sender"].as_str().unwrap().to_string();
+    receiver_tk_adr = body_json["receiver"].as_str().unwrap().to_string();
+    amount = body_json["amount"].as_u64().unwrap();
 
-    // let private_key_str = private_key.as_str();
-    // let public_key_str = public_key.as_str();
+    let private_key_str = private_key.as_str();
+    let sender_tk_adr_str = sender_tk_adr.as_str();
 
-    // let signer = Keypair::from_base58_string(&private_key_str);
+    let signer = Keypair::from_base58_string(&private_key_str);
 
-    // transfer_token(&public_key_str, amount, &client, &signer);
+    transfer_token(&sender_tk_adr_str, &receiver_tk_adr, amount, &client, &signer);
 
     Ok(response)
 }
