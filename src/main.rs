@@ -41,6 +41,7 @@ use tokio_rustls::rustls::ServerConfig;
 
 use std::error::Error;
 
+
 enum State {
     Handshaking(tokio_rustls::Accept<AddrStream>),
     Streaming(tokio_rustls::server::TlsStream<AddrStream>),
@@ -145,6 +146,16 @@ impl Accept for TlsAcceptor {
 
 //funcoes
 
+fn store_data() {
+
+
+    //call a smart contrac
+
+    
+
+
+}
+
 fn transfer_token(sender_tk_adr: &str, receiver_tk_adr: &str, amount: u64, client: &RpcClient, signer: &Keypair) {
 
     let from = signer.pubkey();
@@ -153,19 +164,36 @@ fn transfer_token(sender_tk_adr: &str, receiver_tk_adr: &str, amount: u64, clien
         &ID,
         &Pubkey::from_str(&sender_tk_adr).unwrap(),
         &Pubkey::from_str(&receiver_tk_adr).unwrap(),
-        &Pubkey::from_str(&signer.to_base58_string()).unwrap(),
+        &signer.pubkey(),
         &[&from],
         amount,
     ).unwrap();
 
     let message = Message::new(&[instruction], Some(&from));
-    let transaction = Transaction::new(&[signer], message, client.get_latest_blockhash().unwrap());
+
+    let blockhash = match client.get_latest_blockhash() {
+        Ok(blockhash) => blockhash,
+        Err(err) => {
+            eprintln!("Error getting latest blockhash: {}", err);
+            return;
+        }
+};
+    let transaction = Transaction::new(&[signer], message, blockhash);
+    println!("aqui");
+    
     let result = client.send_transaction(&transaction);
 
     match result {
         Ok(transaction_response) => println!("Transaction successful: {:?}", transaction_response),
         Err(error) => println!("Transaction error: {:?}", error),
     }
+}
+
+fn test_contract(){
+
+    
+
+
 }
 
 async fn api_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
@@ -178,7 +206,7 @@ async fn api_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     );
     headers.insert(
         ACCESS_CONTROL_ALLOW_METHODS,
-        HeaderValue::from_str("POST, GET, OPTIONS").unwrap(),
+        HeaderValue::from_str("POST, GET").unwrap(),
     );
     headers.insert(
         ACCESS_CONTROL_MAX_AGE,
@@ -200,29 +228,36 @@ async fn api_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         .body(Body::from(body))
         .unwrap();
 
-    let client = RpcClient::new("https://devnet.solana.com");
+    let client = RpcClient::new("https://api.devnet.solana.com");
     
     let private_key: String;
     let sender_tk_adr: String;
     let receiver_tk_adr: String;
     let amount: u64;
-    
-    let body = req.into_body();
-    let body_bytes = hyper::body::to_bytes(body).await.unwrap();
-    let body_string = String::from_utf8(body_bytes.to_vec()).unwrap();
-    let body_json: Value = serde_json::from_str(&body_string).unwrap();
 
-    private_key = body_json["private_key"].as_str().unwrap().to_string();
-    sender_tk_adr = body_json["sender"].as_str().unwrap().to_string();
-    receiver_tk_adr = body_json["receiver"].as_str().unwrap().to_string();
-    amount = body_json["amount"].as_u64().unwrap();
+    let private_key = "3hy5sUta8NgU6M8K2kjSjCY48b8Wwd66rpJG2JZ1qhyPLGXt3R6cNEEZz9df666oLPJMKZnUxT5BkbVmXsDEJ3DD";
+    amount = 1000000000;
+    let sender_tk_adr = "HRfUrrgx3YW2NBod4LavAqTjEcFKjeuWnprGFaSsWHGi";
+    let receiver_tk_adr = "ANQc197n6hNFC5zq3wpgkanwoqkbdmH1uTKTNCp3iRnR";
 
-    let private_key_str = private_key.as_str();
-    let sender_tk_adr_str = sender_tk_adr.as_str();
+    // let body = req.into_body();
+    // let body_bytes = hyper::body::to_bytes(body).await.unwrap();
+    // let body_string = String::from_utf8(body_bytes.to_vec()).unwrap();
+    // let body_str = body_string.as_str();
+    // let body_json: Value = serde_json::from_str(body_str).unwrap();
 
-    let signer = Keypair::from_base58_string(&private_key_str);
+    // private_key = body_json["private_key"].as_str().unwrap().to_string();
+    // sender_tk_adr = body_json["sender"].as_str().unwrap().to_string();
+    // receiver_tk_adr = body_json["receiver"].as_str().unwrap().to_string();
+    // amount = body_json["amount"].as_u64().unwrap();
 
-    transfer_token(&sender_tk_adr_str, &receiver_tk_adr, amount, &client, &signer);
+    // let private_key_str = private_key.as_str();
+    // let sender_tk_adr_str = sender_tk_adr.as_str();
+
+    let signer = Keypair::from_base58_string(&private_key);
+
+    transfer_token(&sender_tk_adr, &receiver_tk_adr, amount, &client, &signer);
+    // test_contract();
 
     Ok(response)
 }
@@ -267,6 +302,8 @@ fn load_private_key(filename: &str) -> io::Result<tokio_rustls::rustls::PrivateK
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+
+    let i = 0;
 
     let tls_cfg = {
 
